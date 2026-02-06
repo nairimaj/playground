@@ -3,6 +3,7 @@
   const CELL_SIZE = 20;
   const TICK_MS = 140;
   const VOLUME_BOOST = 2;
+  const SLURP_BOOST = 4;
 
   const board = document.getElementById("board");
   const scoreEl = document.getElementById("score");
@@ -294,18 +295,18 @@
       const source = slurpCtx.createBufferSource();
       source.buffer = slurpBuffer;
       if (slurpGain) {
-        slurpGain.gain.value = VOLUME_BOOST;
+        slurpGain.gain.value = SLURP_BOOST;
         source.connect(slurpGain);
       } else {
         const gain = slurpCtx.createGain();
-        gain.gain.value = VOLUME_BOOST;
+        gain.gain.value = SLURP_BOOST;
         source.connect(gain).connect(slurpCtx.destination);
       }
       source.start(0);
       return;
     }
     if (!slurpEl) return;
-    slurpEl.volume = Math.min(1, VOLUME_BOOST);
+    slurpEl.volume = Math.min(1, SLURP_BOOST);
     slurpEl.currentTime = 0;
     const playPromise = slurpEl.play();
     if (playPromise && typeof playPromise.catch === "function") {
@@ -358,7 +359,7 @@
     if (AudioCtx) {
       slurpCtx = new AudioCtx();
       slurpGain = slurpCtx.createGain();
-      slurpGain.gain.value = VOLUME_BOOST;
+      slurpGain.gain.value = SLURP_BOOST;
       slurpGain.connect(slurpCtx.destination);
       if (meowEl) {
         meowSource = slurpCtx.createMediaElementSource(meowEl);
