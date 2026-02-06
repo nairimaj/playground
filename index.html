@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Snake</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main class="page">
+      <header class="top">
+        <h1>Snake</h1>
+        <div class="stats">
+          <div>Score: <span id="score">0</span></div>
+          <div>Status: <span id="status">Ready</span></div>
+        </div>
+      </header>
+
+      <section class="game">
+        <div class="board-wrap">
+          <canvas id="board" width="400" height="400" aria-label="Snake board"></canvas>
+          <div id="overlay" class="overlay" aria-hidden="true">
+            <div class="overlay-card">
+              <div class="overlay-title">Game Over</div>
+              <div class="overlay-sub">Click anywhere to restart</div>
+            </div>
+          </div>
+        </div>
+        <div class="panel">
+          <button id="start">Start</button>
+          <button id="pause" disabled>Pause</button>
+          <button id="restart" disabled>Restart</button>
+          <div class="help">Controls: Arrow keys or WASD. Pause: P or Space. Restart: R.</div>
+        </div>
+      </section>
+
+      <section class="controls" aria-label="On screen controls">
+        <div class="row">
+          <button data-action="pause">Pause</button>
+        </div>
+        <div class="row">
+          <button data-dir="up">▲</button>
+        </div>
+        <div class="row">
+          <button data-dir="left">◀</button>
+          <button data-dir="down">▼</button>
+          <button data-dir="right">▶</button>
+        </div>
+      </section>
+    </main>
+
+    <audio id="meow" preload="auto" src="meow.wav"></audio>
+    <audio id="slurp" preload="auto" src="slurp.mp3"></audio>
+    <script src="game.js"></script>
+  </body>
+</html>
