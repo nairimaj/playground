@@ -10,8 +10,9 @@
   const scoreEl = document.getElementById("score");
   const statusEl = document.getElementById("status");
   const startBtn = document.getElementById("start");
-  const pauseBtn = document.getElementById("pause");
   const restartBtn = document.getElementById("restart");
+  const startIconEl = document.getElementById("start-icon");
+  const muteBtn = document.getElementById("mute");
   const overlayEl = document.getElementById("overlay");
   const meowEl = document.getElementById("meow");
   const slurpEl = document.getElementById("slurp");
@@ -54,6 +55,7 @@
     paused: false,
     gameOver: false,
     needsDirection: true,
+    muted: false,
     timer: null,
   };
 
@@ -76,8 +78,8 @@
     state.gameOver = false;
     state.needsDirection = true;
     startBtn.disabled = false;
-    pauseBtn.disabled = true;
     restartBtn.disabled = true;
+    updateStartIcon();
     hideOverlay();
     spawnFood();
     updateUI("Ready");
@@ -91,17 +93,17 @@
     }
     if (state.needsDirection) {
       updateUI("Press a direction");
-      startBtn.disabled = true;
-      pauseBtn.disabled = true;
+      startBtn.disabled = false;
       restartBtn.disabled = false;
+      updateStartIcon();
       return;
     }
     state.running = true;
     state.paused = false;
     updateUI("Running");
-    startBtn.disabled = true;
-    pauseBtn.disabled = false;
+    startBtn.disabled = false;
     restartBtn.disabled = false;
+    updateStartIcon();
     tickLoop();
   }
 
@@ -109,6 +111,7 @@
     if (!state.running) return;
     state.paused = !state.paused;
     updateUI(state.paused ? "Paused" : "Running");
+    updateStartIcon();
   }
 
   function endGame() {
@@ -118,8 +121,8 @@
     state.needsDirection = true;
     updateUI("Game Over");
     startBtn.disabled = true;
-    pauseBtn.disabled = true;
     restartBtn.disabled = false;
+    updateStartIcon();
     playMeow();
     showOverlay();
   }
@@ -127,6 +130,17 @@
   function updateUI(status) {
     scoreEl.textContent = String(state.score);
     statusEl.textContent = status;
+  }
+
+  function updateStartIcon() {
+    if (!startIconEl) return;
+    if (state.running && !state.paused) {
+      startIconEl.textContent = "❚❚";
+      startBtn.setAttribute("aria-label", "Pause");
+    } else {
+      startIconEl.textContent = "▶";
+      startBtn.setAttribute("aria-label", "Play");
+    }
   }
 
   function tickLoop() {
@@ -348,6 +362,7 @@
 
   function playMeow() {
     if (!meowEl) return;
+    if (state.muted) return;
     if (meowBuffer && slurpCtx && meowGain) {
       playBuffer(meowBuffer, meowGain, LOSS_VOLUME, () => {
         meowEl.volume = Math.min(1, LOSS_VOLUME);
@@ -370,6 +385,7 @@
   }
 
   function playSlurp() {
+    if (state.muted) return;
     if (slurpBuffer && slurpCtx && slurpCtx.state === "running") {
       const ok = playBuffer(slurpBuffer, slurpGain, SLURP_BOOST);
       if (!ok) {
@@ -382,6 +398,7 @@
 
   function playSlurpFallback() {
     if (!slurpEl) return;
+    if (state.muted) return;
     let audio = slurpPool.find((item) => item.paused || item.ended);
     if (!audio) {
       audio = slurpEl.cloneNode(true);
@@ -416,9 +433,12 @@
 
   startBtn.addEventListener("click", () => {
     ensureAudioContext();
+    if (state.running) {
+      pauseGame();
+      return;
+    }
     startGame();
   });
-  pauseBtn.addEventListener("click", () => pauseGame());
   restartBtn.addEventListener("click", () => {
     resetGame();
   });
@@ -436,9 +456,19 @@
     });
   });
 
-  document.querySelectorAll("[data-action='pause']").forEach((button) => {
-    button.addEventListener("click", () => pauseGame());
-  });
+  function setMuted(nextMuted) {
+    state.muted = nextMuted;
+    if (muteBtn) {
+      muteBtn.setAttribute("aria-pressed", String(nextMuted));
+      muteBtn.classList.toggle("is-muted", nextMuted);
+    }
+  }
+
+  if (muteBtn) {
+    muteBtn.addEventListener("click", () => {
+      setMuted(!state.muted);
+    });
+  }
 
   if (meowEl) {
     meowEl.load();

@@ -120,6 +120,13 @@ canvas {
   gap: 12px;
 }
 
+.controls-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 52px);
+  gap: 10px;
+  justify-content: start;
+}
+
 .panel button,
 .controls button {
   font: inherit;
@@ -130,6 +137,26 @@ canvas {
   color: var(--ink);
   cursor: pointer;
   transition: border-color 120ms ease, transform 120ms ease;
+}
+
+.panel .icon-btn {
+  width: 52px;
+  height: 52px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  font-size: 1.2rem;
+  position: relative;
+}
+
+.panel .icon-btn.mute.is-muted::after {
+  content: "";
+  position: absolute;
+  width: 60%;
+  height: 2px;
+  background: #c04a3e;
+  transform: rotate(-35deg);
+  border-radius: 999px;
 }
 
 .panel button:disabled {

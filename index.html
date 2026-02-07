@@ -27,9 +27,17 @@
           </div>
         </div>
         <div class="panel">
-          <button id="start">Start</button>
-          <button id="pause" disabled>Pause</button>
-          <button id="restart" disabled>Restart</button>
+          <div class="controls-grid">
+            <button id="start" class="icon-btn" aria-label="Play or pause">
+              <span id="start-icon" aria-hidden="true">▶</span>
+            </button>
+            <button id="restart" class="icon-btn" aria-label="Restart" disabled>
+              <span aria-hidden="true">↺</span>
+            </button>
+            <button id="mute" class="icon-btn mute" aria-pressed="false" aria-label="Toggle sound">
+              <span class="mute-icon" aria-hidden="true">🔔</span>
+            </button>
+          </div>
           <div class="help">Controls: Arrow keys or WASD. Pause: P or Space. Restart: R.</div>
         </div>
       </section>
