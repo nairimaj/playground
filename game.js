@@ -4,6 +4,7 @@
   const TICK_MS = 140;
   const VOLUME_BOOST = 2;
   const SLURP_BOOST = 4;
+  const LOSS_VOLUME = 0.2;
 
   const board = document.getElementById("board");
   const scoreEl = document.getElementById("score");
@@ -16,9 +17,12 @@
   const slurpEl = document.getElementById("slurp");
   let slurpCtx = null;
   let slurpBuffer = null;
+  let meowBuffer = null;
   let slurpGain = null;
   let meowGain = null;
-  let meowSource = null;
+  let audioInitPromise = null;
+  const slurpPool = [];
+  const meowPool = [];
 
   const ctx = board.getContext("2d");
 
@@ -116,8 +120,8 @@
     startBtn.disabled = true;
     pauseBtn.disabled = true;
     restartBtn.disabled = false;
-    showOverlay();
     playMeow();
+    showOverlay();
   }
 
   function updateUI(status) {
@@ -242,6 +246,7 @@
   }
 
   function handleDirection(dir) {
+    ensureAudioContext();
     if (state.gameOver) {
       resetGame();
     }
@@ -270,45 +275,118 @@
     overlayEl.setAttribute("aria-hidden", "true");
   }
 
+  function initAudio() {
+    if (audioInitPromise) return audioInitPromise;
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return Promise.resolve();
+    audioInitPromise = Promise.resolve()
+      .then(() => {
+        if (!slurpCtx) {
+          slurpCtx = new AudioCtx();
+          slurpGain = slurpCtx.createGain();
+          slurpGain.gain.value = SLURP_BOOST;
+          slurpGain.connect(slurpCtx.destination);
+          meowGain = slurpCtx.createGain();
+          meowGain.gain.value = LOSS_VOLUME;
+          meowGain.connect(slurpCtx.destination);
+        }
+      })
+      .then(() =>
+        fetch("slurp.mp3")
+          .then((res) => res.arrayBuffer())
+          .then((buf) => slurpCtx.decodeAudioData(buf))
+          .then((decoded) => {
+            slurpBuffer = decoded;
+          })
+          .catch(() => {})
+      )
+      .then(() =>
+        fetch("meow.wav")
+          .then((res) => res.arrayBuffer())
+          .then((buf) => slurpCtx.decodeAudioData(buf))
+          .then((decoded) => {
+            meowBuffer = decoded;
+          })
+          .catch(() => {})
+      );
+    return audioInitPromise;
+  }
+
+  function ensureAudioContext() {
+    return initAudio()
+      .then(() => {
+        if (slurpCtx && slurpCtx.state === "suspended") {
+          return slurpCtx.resume().catch(() => {});
+        }
+        return null;
+      })
+      .catch(() => {});
+  }
+
+  function playBuffer(buffer, gainNode, volume, fallback) {
+    if (!slurpCtx || !buffer) return false;
+    if (slurpCtx.state !== "running") return false;
+    const start = () => {
+      const source = slurpCtx.createBufferSource();
+      source.buffer = buffer;
+      if (gainNode) {
+        gainNode.gain.value = volume;
+        source.connect(gainNode);
+      } else {
+        const gain = slurpCtx.createGain();
+        gain.gain.value = volume;
+        source.connect(gain).connect(slurpCtx.destination);
+      }
+      source.start(0);
+    };
+    start();
+    return true;
+  }
+
   function playMeow() {
     if (!meowEl) return;
-    meowEl.currentTime = 0;
-    if (slurpCtx && meowGain) {
-      meowGain.gain.value = VOLUME_BOOST;
-      if (slurpCtx.state === "suspended") {
-        slurpCtx.resume().catch(() => {});
-      }
-    } else {
-      meowEl.volume = Math.min(1, VOLUME_BOOST);
+    if (meowBuffer && slurpCtx && meowGain) {
+      playBuffer(meowBuffer, meowGain, LOSS_VOLUME, () => {
+        meowEl.volume = Math.min(1, LOSS_VOLUME);
+        meowEl.currentTime = 0;
+        meowEl.play().catch(() => {});
+      });
+      return;
     }
-    const playPromise = meowEl.play();
+    let audio = meowPool.find((item) => item.paused || item.ended);
+    if (!audio) {
+      audio = meowEl.cloneNode(true);
+      meowPool.push(audio);
+    }
+    audio.volume = Math.min(1, LOSS_VOLUME);
+    audio.currentTime = 0;
+    const playPromise = audio.play();
     if (playPromise && typeof playPromise.catch === "function") {
       playPromise.catch(() => {});
     }
   }
 
   function playSlurp() {
-    if (slurpBuffer && slurpCtx) {
-      if (slurpCtx.state === "suspended") {
-        slurpCtx.resume().catch(() => {});
+    if (slurpBuffer && slurpCtx && slurpCtx.state === "running") {
+      const ok = playBuffer(slurpBuffer, slurpGain, SLURP_BOOST);
+      if (!ok) {
+        playSlurpFallback();
       }
-      const source = slurpCtx.createBufferSource();
-      source.buffer = slurpBuffer;
-      if (slurpGain) {
-        slurpGain.gain.value = SLURP_BOOST;
-        source.connect(slurpGain);
-      } else {
-        const gain = slurpCtx.createGain();
-        gain.gain.value = SLURP_BOOST;
-        source.connect(gain).connect(slurpCtx.destination);
-      }
-      source.start(0);
       return;
     }
+    playSlurpFallback();
+  }
+
+  function playSlurpFallback() {
     if (!slurpEl) return;
-    slurpEl.volume = Math.min(1, SLURP_BOOST);
-    slurpEl.currentTime = 0;
-    const playPromise = slurpEl.play();
+    let audio = slurpPool.find((item) => item.paused || item.ended);
+    if (!audio) {
+      audio = slurpEl.cloneNode(true);
+      slurpPool.push(audio);
+    }
+    audio.volume = Math.min(1, SLURP_BOOST);
+    audio.currentTime = 0;
+    const playPromise = audio.play();
     if (playPromise && typeof playPromise.catch === "function") {
       playPromise.catch(() => {});
     }
@@ -328,11 +406,15 @@
     const dir = keyToDir[key];
     if (dir) {
       event.preventDefault();
+      ensureAudioContext();
       handleDirection(dir);
     }
   });
 
-  startBtn.addEventListener("click", () => startGame());
+  startBtn.addEventListener("click", () => {
+    ensureAudioContext();
+    startGame();
+  });
   pauseBtn.addEventListener("click", () => pauseGame());
   restartBtn.addEventListener("click", () => {
     resetGame();
@@ -346,6 +428,7 @@
 
   document.querySelectorAll("[data-dir]").forEach((button) => {
     button.addEventListener("click", () => {
+      ensureAudioContext();
       handleDirection(button.dataset.dir);
     });
   });
@@ -354,26 +437,16 @@
     button.addEventListener("click", () => pauseGame());
   });
 
+  if (meowEl) {
+    meowEl.load();
+  }
+
   if (slurpEl) {
-    const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    if (AudioCtx) {
-      slurpCtx = new AudioCtx();
-      slurpGain = slurpCtx.createGain();
-      slurpGain.gain.value = SLURP_BOOST;
-      slurpGain.connect(slurpCtx.destination);
-      if (meowEl) {
-        meowSource = slurpCtx.createMediaElementSource(meowEl);
-        meowGain = slurpCtx.createGain();
-        meowGain.gain.value = VOLUME_BOOST;
-        meowSource.connect(meowGain).connect(slurpCtx.destination);
-      }
-      fetch("slurp.mp3")
-        .then((res) => res.arrayBuffer())
-        .then((buf) => slurpCtx.decodeAudioData(buf))
-        .then((decoded) => {
-          slurpBuffer = decoded;
-        })
-        .catch(() => {});
+    slurpEl.load();
+    for (let i = 0; i < 6; i += 1) {
+      const clone = slurpEl.cloneNode(true);
+      clone.volume = Math.min(1, SLURP_BOOST);
+      slurpPool.push(clone);
     }
   }
 
