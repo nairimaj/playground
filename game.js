@@ -147,15 +147,20 @@
     const head = state.snake[0];
     const move = DIRECTIONS[state.direction];
     const next = { x: head.x + move.x, y: head.y + move.y };
+    if (next.x < 0) next.x = GRID_SIZE - 1;
+    if (next.x >= GRID_SIZE) next.x = 0;
+    if (next.y < 0) next.y = GRID_SIZE - 1;
+    if (next.y >= GRID_SIZE) next.y = 0;
 
-    if (isCollision(next)) {
+    const willEat = next.x === state.food.x && next.y === state.food.y;
+    if (isCollision(next, willEat)) {
       endGame();
       return;
     }
 
     state.snake.unshift(next);
 
-    if (next.x === state.food.x && next.y === state.food.y) {
+    if (willEat) {
       state.score += 1;
       playSlurp();
       spawnFood();
@@ -180,11 +185,9 @@
     );
   }
 
-  function isCollision(pos) {
-    if (pos.x < 0 || pos.y < 0 || pos.x >= GRID_SIZE || pos.y >= GRID_SIZE) {
-      return true;
-    }
-    return state.snake.some((segment) => segment.x === pos.x && segment.y === pos.y);
+  function isCollision(pos, willEat) {
+    const body = willEat ? state.snake : state.snake.slice(0, -1);
+    return body.some((segment) => segment.x === pos.x && segment.y === pos.y);
   }
 
   function spawnFood(rng = Math.random) {
